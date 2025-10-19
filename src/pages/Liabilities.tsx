@@ -67,16 +67,16 @@ export default function Liabilities() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Liabilities</h1>
-          <p className="text-muted-foreground mt-1">Track your debts and obligations</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Liabilities</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Track your debts and obligations</p>
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
-              Add Liability
+              <span className="sm:inline">Add Liability</span>
             </Button>
           </DialogTrigger>
           <DialogContent>
