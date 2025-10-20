@@ -34,7 +34,7 @@ export default function Transactions() {
       category: formData.category,
       recurring: formData.recurring,
       status: 'estimated' as const,
-      accountId: formData.accountId || undefined,
+      accountId: formData.accountId && formData.accountId !== 'none' ? formData.accountId : undefined,
       accountType: formData.accountType || undefined,
       dayOfMonth: formData.dayOfMonth ? parseInt(formData.dayOfMonth) : undefined,
     };
@@ -55,7 +55,7 @@ export default function Transactions() {
       type: 'income', 
       category: '', 
       recurring: false,
-      accountId: '',
+      accountId: 'none',
       accountType: '',
       dayOfMonth: '',
     });
@@ -70,7 +70,7 @@ export default function Transactions() {
       type: transaction.type,
       category: transaction.category,
       recurring: transaction.recurring,
-      accountId: transaction.accountId || '',
+      accountId: transaction.accountId || 'none',
       accountType: transaction.accountType || '',
       dayOfMonth: transaction.dayOfMonth?.toString() || '',
     });
@@ -180,7 +180,7 @@ export default function Transactions() {
                     <SelectValue placeholder="Select account" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No account</SelectItem>
+                    <SelectItem value="none">No account</SelectItem>
                     {allAccounts.map((account) => (
                       <SelectItem key={account.id} value={account.id}>
                         {account.name} ({account.type})
