@@ -5,14 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Asset } from '@/types/finance';
+import { Asset, ASSET_CATEGORIES, AssetCategory } from '@/types/finance';
 
 export default function Assets() {
   const { data, addAsset, updateAsset, deleteAsset } = useFinance();
   const [isOpen, setIsOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    value: string;
+    category: AssetCategory | '';
+    description: string;
+  }>({
     name: '',
     value: '',
     category: '',
@@ -21,15 +27,21 @@ export default function Assets() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.category) return;
+    
     if (editingAsset) {
       updateAsset(editingAsset.id, {
-        ...formData,
+        name: formData.name,
         value: parseFloat(formData.value),
+        category: formData.category,
+        description: formData.description,
       });
     } else {
       addAsset({
-        ...formData,
+        name: formData.name,
         value: parseFloat(formData.value),
+        category: formData.category,
+        description: formData.description,
       });
     }
     setIsOpen(false);
@@ -102,13 +114,22 @@ export default function Assets() {
               </div>
               <div>
                 <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
+                <Select
                   value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="e.g., Real Estate, Stocks, Cash"
+                  onValueChange={(value) => setFormData({ ...formData, category: value as AssetCategory })}
                   required
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ASSET_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="description">Description (Optional)</Label>
@@ -135,8 +156,20 @@ export default function Assets() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {data.assets.map((asset) => (
+      {ASSET_CATEGORIES.map((category) => {
+        const categoryAssets = data.assets.filter((a) => a.category === category);
+        if (categoryAssets.length === 0) return null;
+        
+        const categoryTotal = categoryAssets.reduce((sum, a) => sum + a.value, 0);
+        
+        return (
+          <div key={category} className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">{category}</h2>
+              <span className="text-sm font-medium text-success">{formatCurrency(categoryTotal)}</span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {categoryAssets.map((asset) => (
           <Card key={asset.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -160,9 +193,12 @@ export default function Assets() {
                 <p className="text-sm text-muted-foreground mt-2">{asset.description}</p>
               )}
             </CardContent>
-          </Card>
-        ))}
-      </div>
+              </Card>
+              ))}
+            </div>
+          </div>
+        );
+      })}
 
       {data.assets.length === 0 && (
         <Card>

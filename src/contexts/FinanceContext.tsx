@@ -131,6 +131,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
     const newTransaction: Transaction = {
+      status: 'estimated',
       ...transaction,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),

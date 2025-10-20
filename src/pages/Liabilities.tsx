@@ -5,14 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Liability } from '@/types/finance';
+import { Liability, LIABILITY_CATEGORIES, LiabilityCategory } from '@/types/finance';
 
 export default function Liabilities() {
   const { data, addLiability, updateLiability, deleteLiability } = useFinance();
   const [isOpen, setIsOpen] = useState(false);
   const [editingLiability, setEditingLiability] = useState<Liability | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    value: string;
+    category: LiabilityCategory | '';
+    interestRate: string;
+    description: string;
+  }>({
     name: '',
     value: '',
     category: '',
@@ -22,17 +29,23 @@ export default function Liabilities() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.category) return;
+    
     if (editingLiability) {
       updateLiability(editingLiability.id, {
-        ...formData,
+        name: formData.name,
         value: parseFloat(formData.value),
+        category: formData.category,
         interestRate: formData.interestRate ? parseFloat(formData.interestRate) : undefined,
+        description: formData.description,
       });
     } else {
       addLiability({
-        ...formData,
+        name: formData.name,
         value: parseFloat(formData.value),
+        category: formData.category,
         interestRate: formData.interestRate ? parseFloat(formData.interestRate) : undefined,
+        description: formData.description,
       });
     }
     setIsOpen(false);
@@ -106,13 +119,22 @@ export default function Liabilities() {
               </div>
               <div>
                 <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
+                <Select
                   value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="e.g., Mortgage, Student Loan, Car Loan"
+                  onValueChange={(value) => setFormData({ ...formData, category: value as LiabilityCategory })}
                   required
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LIABILITY_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="interestRate">Interest Rate (%) (Optional)</Label>
@@ -149,8 +171,20 @@ export default function Liabilities() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {data.liabilities.map((liability) => (
+      {LIABILITY_CATEGORIES.map((category) => {
+        const categoryLiabilities = data.liabilities.filter((l) => l.category === category);
+        if (categoryLiabilities.length === 0) return null;
+        
+        const categoryTotal = categoryLiabilities.reduce((sum, l) => sum + l.value, 0);
+        
+        return (
+          <div key={category} className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">{category}</h2>
+              <span className="text-sm font-medium text-destructive">{formatCurrency(categoryTotal)}</span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {categoryLiabilities.map((liability) => (
           <Card key={liability.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -179,9 +213,12 @@ export default function Liabilities() {
                 <p className="text-sm text-muted-foreground mt-2">{liability.description}</p>
               )}
             </CardContent>
-          </Card>
-        ))}
-      </div>
+              </Card>
+              ))}
+            </div>
+          </div>
+        );
+      })}
 
       {data.liabilities.length === 0 && (
         <Card>

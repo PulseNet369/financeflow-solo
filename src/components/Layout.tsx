@@ -8,7 +8,8 @@ import {
   CreditCard, 
   ArrowUpDown,
   Settings as SettingsIcon,
-  Menu
+  Menu,
+  CheckCircle2
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ const navItems = [
   { path: '/liabilities', label: 'Liabilities', icon: TrendingDown },
   { path: '/credit-cards', label: 'Credit Cards', icon: CreditCard },
   { path: '/transactions', label: 'Transactions', icon: ArrowUpDown },
+  { path: '/due-transactions', label: 'Due Transactions', icon: CheckCircle2 },
   { path: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
 

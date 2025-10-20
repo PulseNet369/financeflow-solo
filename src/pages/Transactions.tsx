@@ -20,27 +20,45 @@ export default function Transactions() {
     type: 'income' as 'income' | 'expense',
     category: '',
     recurring: false,
+    accountId: '',
+    accountType: '' as 'asset' | 'liability' | '',
+    dayOfMonth: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const transactionData = {
+      name: formData.name,
+      amount: parseFloat(formData.amount),
+      type: formData.type,
+      category: formData.category,
+      recurring: formData.recurring,
+      status: 'estimated' as const,
+      accountId: formData.accountId || undefined,
+      accountType: formData.accountType || undefined,
+      dayOfMonth: formData.dayOfMonth ? parseInt(formData.dayOfMonth) : undefined,
+    };
+
     if (editingTransaction) {
-      updateTransaction(editingTransaction.id, {
-        ...formData,
-        amount: parseFloat(formData.amount),
-      });
+      updateTransaction(editingTransaction.id, transactionData);
     } else {
-      addTransaction({
-        ...formData,
-        amount: parseFloat(formData.amount),
-      });
+      addTransaction(transactionData);
     }
     setIsOpen(false);
     resetForm();
   };
 
   const resetForm = () => {
-    setFormData({ name: '', amount: '', type: 'income', category: '', recurring: false });
+    setFormData({ 
+      name: '', 
+      amount: '', 
+      type: 'income', 
+      category: '', 
+      recurring: false,
+      accountId: '',
+      accountType: '',
+      dayOfMonth: '',
+    });
     setEditingTransaction(null);
   };
 
@@ -52,6 +70,9 @@ export default function Transactions() {
       type: transaction.type,
       category: transaction.category,
       recurring: transaction.recurring,
+      accountId: transaction.accountId || '',
+      accountType: transaction.accountType || '',
+      dayOfMonth: transaction.dayOfMonth?.toString() || '',
     });
     setIsOpen(true);
   };
@@ -63,30 +84,40 @@ export default function Transactions() {
     }).format(value);
   };
 
+  const allAccounts = [
+    ...data.assets.map(a => ({ id: a.id, name: a.name, type: 'asset' as const })),
+    ...data.liabilities.map(l => ({ id: l.id, name: l.name, type: 'liability' as const })),
+  ];
+
+  const getAccountName = (id: string) => {
+    const account = allAccounts.find(a => a.id === id);
+    return account?.name || 'Unlinked';
+  };
+
   const income = data.transactions.filter(t => t.type === 'income');
   const expenses = data.transactions.filter(t => t.type === 'expense');
   const totalIncome = income.reduce((sum, t) => sum + t.amount, 0);
   const totalExpenses = expenses.reduce((sum, t) => sum + t.amount, 0);
-  const recurringIncome = income.filter(t => t.recurring).reduce((sum, t) => sum + t.amount, 0);
-  const recurringExpenses = expenses.filter(t => t.recurring).reduce((sum, t) => sum + t.amount, 0);
+  const confirmedIncome = income.filter(t => t.status === 'confirmed').reduce((sum, t) => sum + (t.lastConfirmedAmount || t.amount), 0);
+  const confirmedExpenses = expenses.filter(t => t.status === 'confirmed').reduce((sum, t) => sum + (t.lastConfirmedAmount || t.amount), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Transactions</h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1">Track your income and expenses</p>
+          <p className="text-sm text-muted-foreground">Track income and expenses</p>
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="gap-2 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
-              <span className="sm:inline">Add Transaction</span>
+              Add Transaction
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}</DialogTitle>
+              <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -100,7 +131,7 @@ export default function Transactions() {
                 />
               </div>
               <div>
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">Amount (Estimated)</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -132,6 +163,32 @@ export default function Transactions() {
                   required
                 />
               </div>
+              <div>
+                <Label htmlFor="account">Link to Account (Optional)</Label>
+                <Select 
+                  value={formData.accountId} 
+                  onValueChange={(value) => {
+                    const account = allAccounts.find(a => a.id === value);
+                    setFormData({ 
+                      ...formData, 
+                      accountId: value,
+                      accountType: account?.type || ''
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No account</SelectItem>
+                    {allAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name} ({account.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="recurring">Recurring (Monthly)</Label>
                 <Switch
@@ -140,6 +197,20 @@ export default function Transactions() {
                   onCheckedChange={(checked) => setFormData({ ...formData, recurring: checked })}
                 />
               </div>
+              {formData.recurring && (
+                <div>
+                  <Label htmlFor="dayOfMonth">Day of Month (1-31)</Label>
+                  <Input
+                    id="dayOfMonth"
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={formData.dayOfMonth}
+                    onChange={(e) => setFormData({ ...formData, dayOfMonth: e.target.value })}
+                    placeholder="e.g., 1 for first of month"
+                  />
+                </div>
+              )}
               <Button type="submit" className="w-full">
                 {editingTransaction ? 'Update' : 'Add'} Transaction
               </Button>
@@ -148,77 +219,80 @@ export default function Transactions() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-success/10 border-success/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-success">
-              <TrendingUp className="h-5 w-5" />
-              Total Income
-            </CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-success">Estimated Income</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-success">{formatCurrency(totalIncome)}</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Monthly recurring: {formatCurrency(recurringIncome)}
-            </p>
+            <div className="text-2xl font-bold text-success">{formatCurrency(totalIncome)}</div>
           </CardContent>
         </Card>
         <Card className="bg-destructive/10 border-destructive/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive">
-              <TrendingDown className="h-5 w-5" />
-              Total Expenses
-            </CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-destructive">Estimated Expenses</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-destructive">{formatCurrency(totalExpenses)}</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Monthly recurring: {formatCurrency(recurringExpenses)}
-            </p>
+            <div className="text-2xl font-bold text-destructive">{formatCurrency(totalExpenses)}</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-success/5 border-success/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-success">Confirmed Income</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-success">{formatCurrency(confirmedIncome)}</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-destructive/5 border-destructive/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-destructive">Confirmed Expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{formatCurrency(confirmedExpenses)}</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Net Cash Flow (Monthly Recurring)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className={`text-3xl font-bold ${recurringIncome - recurringExpenses >= 0 ? 'text-success' : 'text-destructive'}`}>
-            {formatCurrency(recurringIncome - recurringExpenses)}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2 text-success">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2 text-success">
             <TrendingUp className="h-5 w-5" />
             Income
           </h2>
           {income.length > 0 ? (
             income.map((transaction) => (
               <Card key={transaction.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{transaction.name}</h3>
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-sm">{transaction.name}</h3>
                         {transaction.recurring && (
-                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                            Recurring
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                            Day {transaction.dayOfMonth}
                           </span>
                         )}
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          transaction.status === 'confirmed' 
+                            ? 'bg-success/10 text-success' 
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {transaction.status}
+                        </span>
                       </div>
-                      <p className="text-sm text-muted-foreground">{transaction.category}</p>
+                      <p className="text-xs text-muted-foreground">{transaction.category}</p>
+                      {transaction.accountId && (
+                        <p className="text-xs text-muted-foreground">→ {getAccountName(transaction.accountId)}</p>
+                      )}
                       <p className="text-lg font-bold text-success mt-1">{formatCurrency(transaction.amount)}</p>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(transaction)}>
-                        <Pencil className="h-4 w-4" />
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(transaction)}>
+                        <Pencil className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteTransaction(transaction.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteTransaction(transaction.id)}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
                       </Button>
                     </div>
                   </div>
@@ -227,41 +301,51 @@ export default function Transactions() {
             ))
           ) : (
             <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
+              <CardContent className="py-8 text-center text-muted-foreground text-sm">
                 No income transactions yet.
               </CardContent>
             </Card>
           )}
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2 text-destructive">
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2 text-destructive">
             <TrendingDown className="h-5 w-5" />
             Expenses
           </h2>
           {expenses.length > 0 ? (
             expenses.map((transaction) => (
               <Card key={transaction.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{transaction.name}</h3>
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-sm">{transaction.name}</h3>
                         {transaction.recurring && (
-                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                            Recurring
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                            Day {transaction.dayOfMonth}
                           </span>
                         )}
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          transaction.status === 'confirmed' 
+                            ? 'bg-success/10 text-success' 
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {transaction.status}
+                        </span>
                       </div>
-                      <p className="text-sm text-muted-foreground">{transaction.category}</p>
+                      <p className="text-xs text-muted-foreground">{transaction.category}</p>
+                      {transaction.accountId && (
+                        <p className="text-xs text-muted-foreground">→ {getAccountName(transaction.accountId)}</p>
+                      )}
                       <p className="text-lg font-bold text-destructive mt-1">{formatCurrency(transaction.amount)}</p>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(transaction)}>
-                        <Pencil className="h-4 w-4" />
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(transaction)}>
+                        <Pencil className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteTransaction(transaction.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteTransaction(transaction.id)}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
                       </Button>
                     </div>
                   </div>
@@ -270,7 +354,7 @@ export default function Transactions() {
             ))
           ) : (
             <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
+              <CardContent className="py-8 text-center text-muted-foreground text-sm">
                 No expense transactions yet.
               </CardContent>
             </Card>

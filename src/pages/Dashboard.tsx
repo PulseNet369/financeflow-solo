@@ -1,8 +1,8 @@
 import { useFinance } from '@/contexts/FinanceContext';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wallet, TrendingUp, TrendingDown, CreditCard, DollarSign } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { Wallet, TrendingUp, TrendingDown, CreditCard } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -36,63 +36,120 @@ export default function Dashboard() {
     }).format(value);
   };
 
+  // Assets by category
   const assetsByCategory = data.assets.reduce((acc, asset) => {
     acc[asset.category] = (acc[asset.category] || 0) + asset.value;
     return acc;
   }, {} as Record<string, number>);
 
-  const pieData = Object.entries(assetsByCategory).map(([name, value]) => ({ name, value }));
+  const assetsPieData = Object.entries(assetsByCategory).map(([name, value]) => ({ name, value }));
 
-  const cashFlowData = [
-    { name: 'Income', value: monthlyIncome },
-    { name: 'Expenses', value: monthlyExpenses },
-    { name: 'Net', value: monthlyIncome - monthlyExpenses },
+  // Net worth breakdown
+  const netWorthBreakdown = [
+    { name: 'Assets', value: totalAssets, color: 'hsl(var(--success))' },
+    { name: 'Liabilities', value: totalLiabilities, color: 'hsl(var(--destructive))' },
   ];
 
+  if (data.settings.includeCreditInNetWorth && availableCredit > 0) {
+    netWorthBreakdown.push({ name: 'Available Credit', value: availableCredit, color: 'hsl(var(--primary))' });
+  }
+
+  const today = new Date();
+  const currentDay = today.getDate();
+  const dueCount = data.transactions.filter(t => {
+    if (!t.recurring || !t.dayOfMonth) return false;
+    const lastConfirmed = t.lastConfirmedDate ? new Date(t.lastConfirmedDate) : null;
+    const isThisMonth = !lastConfirmed || 
+      (lastConfirmed.getMonth() !== today.getMonth() || 
+       lastConfirmed.getFullYear() !== today.getFullYear());
+    return t.dayOfMonth <= currentDay && isThisMonth;
+  }).length;
+
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm sm:text-base text-muted-foreground mt-1">Overview of your financial position</p>
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Financial overview</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Net Worth"
           value={formatCurrency(netWorth)}
-          icon={<Wallet className="h-5 w-5" />}
+          icon={<Wallet className="h-4 w-4" />}
           variant={netWorth >= 0 ? 'success' : 'destructive'}
         />
         <StatCard
-          title="Total Assets"
+          title="Assets"
           value={formatCurrency(totalAssets)}
-          icon={<TrendingUp className="h-5 w-5" />}
+          icon={<TrendingUp className="h-4 w-4" />}
           variant="success"
         />
         <StatCard
-          title="Total Liabilities"
+          title="Liabilities"
           value={formatCurrency(totalLiabilities)}
-          icon={<TrendingDown className="h-5 w-5" />}
+          icon={<TrendingDown className="h-4 w-4" />}
           variant="destructive"
         />
         <StatCard
           title="Available Credit"
           value={formatCurrency(availableCredit)}
-          icon={<CreditCard className="h-5 w-5" />}
+          icon={<CreditCard className="h-4 w-4" />}
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {dueCount > 0 && (
+        <Card className="bg-primary/10 border-primary/20">
+          <CardContent className="p-4">
+            <p className="text-sm font-medium">
+              {dueCount} transaction{dueCount !== 1 ? 's' : ''} pending confirmation
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-3 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle>Assets by Category</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Net Worth Composition</CardTitle>
           </CardHeader>
           <CardContent>
-            {pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+            {netWorthBreakdown.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
-                    data={pieData}
+                    data={netWorthBreakdown}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value, percent }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(0)}%)`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {netWorthBreakdown.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-muted-foreground py-8 text-sm">No data available</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Assets by Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {assetsPieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={assetsPieData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -101,72 +158,90 @@ export default function Dashboard() {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {pieData.map((entry, index) => (
+                    {assetsPieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Legend />
+                  <Tooltip formatter={(value) => formatCurrency(value as number)} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                No assets yet. Add some to see the breakdown.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Monthly Cash Flow</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {monthlyIncome > 0 || monthlyExpenses > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={cashFlowData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                No recurring transactions yet. Add some to see your cash flow.
-              </div>
+              <p className="text-center text-muted-foreground py-8 text-sm">No assets yet</p>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-success" />
-              Monthly Income
-            </CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-success">Monthly Income</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-success">{formatCurrency(monthlyIncome)}</div>
-            <p className="text-sm text-muted-foreground mt-2">
-              From {data.transactions.filter(t => t.type === 'income' && t.recurring).length} recurring source(s)
+            <div className="text-xl font-bold text-success">{formatCurrency(monthlyIncome)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-destructive">Monthly Expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-destructive">{formatCurrency(monthlyExpenses)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Net Cash Flow</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-xl font-bold ${monthlyIncome - monthlyExpenses >= 0 ? 'text-success' : 'text-destructive'}`}>
+              {formatCurrency(monthlyIncome - monthlyExpenses)}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Credit Utilization</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold">
+              {totalCreditLimit > 0 ? `${((totalCreditDebt / totalCreditLimit) * 100).toFixed(0)}%` : 'N/A'}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Total Accounts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.assets.length + data.liabilities.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {data.assets.length} assets, {data.liabilities.length} liabilities
             </p>
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-destructive" />
-              Monthly Expenses
-            </CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Credit Cards</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-destructive">{formatCurrency(monthlyExpenses)}</div>
-            <p className="text-sm text-muted-foreground mt-2">
-              From {data.transactions.filter(t => t.type === 'expense' && t.recurring).length} recurring expense(s)
+            <div className="text-2xl font-bold">{data.creditCards.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatCurrency(totalCreditDebt)} debt
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Transactions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.transactions.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {data.transactions.filter(t => t.recurring).length} recurring
             </p>
           </CardContent>
         </Card>
