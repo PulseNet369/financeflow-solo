@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Plus, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { Transaction } from '@/types/finance';
+import { ASSET_CATEGORIES, LIABILITY_CATEGORIES } from '@/types/finance';
 
 export default function Transactions() {
   const { data, addTransaction, updateTransaction, deleteTransaction } = useFinance();
@@ -21,7 +23,7 @@ export default function Transactions() {
     category: '',
     recurring: false,
     accountId: '',
-    accountType: '' as 'asset' | 'liability' | '',
+    accountType: '' as 'asset' | 'liability' | 'creditCard' | '',
     dayOfMonth: '',
   });
 
@@ -85,8 +87,9 @@ export default function Transactions() {
   };
 
   const allAccounts = [
-    ...data.assets.map(a => ({ id: a.id, name: a.name, type: 'asset' as const })),
-    ...data.liabilities.map(l => ({ id: l.id, name: l.name, type: 'liability' as const })),
+    ...data.assets.map(a => ({ id: a.id, name: a.name, type: 'asset' as const, category: a.category })),
+    ...data.liabilities.map(l => ({ id: l.id, name: l.name, type: 'liability' as const, category: l.category })),
+    ...data.creditCards.map(c => ({ id: c.id, name: c.name, type: 'creditCard' as const, category: 'Credit Card' })),
   ];
 
   const getAccountName = (id: string) => {
@@ -179,13 +182,53 @@ export default function Transactions() {
                   <SelectTrigger>
                     <SelectValue placeholder="Select account" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[300px]">
                     <SelectItem value="none">No account</SelectItem>
-                    {allAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name} ({account.type})
-                      </SelectItem>
-                    ))}
+                    
+                    {ASSET_CATEGORIES.map((category) => {
+                      const categoryAccounts = allAccounts.filter(
+                        a => a.type === 'asset' && a.category === category
+                      );
+                      if (categoryAccounts.length === 0) return null;
+                      return (
+                        <SelectGroup key={category}>
+                          <SelectLabel>{category}</SelectLabel>
+                          {categoryAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      );
+                    })}
+
+                    {LIABILITY_CATEGORIES.map((category) => {
+                      const categoryAccounts = allAccounts.filter(
+                        a => a.type === 'liability' && a.category === category
+                      );
+                      if (categoryAccounts.length === 0) return null;
+                      return (
+                        <SelectGroup key={category}>
+                          <SelectLabel>{category}</SelectLabel>
+                          {categoryAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      );
+                    })}
+
+                    {data.creditCards.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Credit Cards</SelectLabel>
+                        {data.creditCards.map((card) => (
+                          <SelectItem key={card.id} value={card.id}>
+                            {card.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

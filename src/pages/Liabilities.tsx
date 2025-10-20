@@ -98,6 +98,25 @@ export default function Liabilities() {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({ ...formData, category: value as LiabilityCategory })}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LIABILITY_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label htmlFor="name">Liability Name</Label>
                 <Input
                   id="name"
@@ -116,25 +135,6 @@ export default function Liabilities() {
                   onChange={(e) => setFormData({ ...formData, value: e.target.value })}
                   required
                 />
-              </div>
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value as LiabilityCategory })}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LIABILITY_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div>
                 <Label htmlFor="interestRate">Interest Rate (%) (Optional)</Label>

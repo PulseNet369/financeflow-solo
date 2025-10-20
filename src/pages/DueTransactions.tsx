@@ -5,26 +5,37 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { CheckCircle2, Clock, TrendingUp, TrendingDown, Edit } from 'lucide-react';
 import { Transaction } from '@/types/finance';
 
 export default function DueTransactions() {
-  const { data, updateTransaction, updateAsset, updateLiability } = useFinance();
+  const { data, updateTransaction, updateAsset, updateLiability, updateCreditCard } = useFinance();
   const [confirmDialog, setConfirmDialog] = useState<Transaction | null>(null);
   const [confirmedAmount, setConfirmedAmount] = useState('');
 
   const today = new Date();
   const currentDay = today.getDate();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
 
   const dueTransactions = data.transactions.filter(t => {
     if (!t.recurring || !t.dayOfMonth) return false;
     
     const lastConfirmed = t.lastConfirmedDate ? new Date(t.lastConfirmedDate) : null;
-    const isThisMonth = !lastConfirmed || 
-      (lastConfirmed.getMonth() !== today.getMonth() || 
-       lastConfirmed.getFullYear() !== today.getFullYear());
     
-    return t.dayOfMonth <= currentDay && isThisMonth;
+    // Check if already confirmed this month
+    if (lastConfirmed && 
+        lastConfirmed.getMonth() === currentMonth && 
+        lastConfirmed.getFullYear() === currentYear) {
+      return false;
+    }
+    
+    // Calculate days until due
+    const dueDate = new Date(currentYear, currentMonth, t.dayOfMonth);
+    const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Only show if within 7 days before or on/after the due date
+    return daysUntilDue <= 7 && daysUntilDue >= -30;
   });
 
   const formatCurrency = (value: number) => {
@@ -38,12 +49,67 @@ export default function DueTransactions() {
     if (!id) return null;
     const asset = data.assets.find(a => a.id === id);
     const liability = data.liabilities.find(l => l.id === id);
-    return asset?.name || liability?.name || null;
+    const creditCard = data.creditCards.find(c => c.id === id);
+    return asset?.name || liability?.name || creditCard?.name || null;
   };
 
-  const handleConfirm = (transaction: Transaction) => {
+  const getDaysUntilDue = (dayOfMonth: number) => {
+    const dueDate = new Date(currentYear, currentMonth, dayOfMonth);
+    const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilDue < 0) return 'Overdue';
+    if (daysUntilDue === 0) return 'Due today';
+    if (daysUntilDue === 1) return 'Due tomorrow';
+    return `Due in ${daysUntilDue} days`;
+  };
+
+  const handleQuickConfirm = (transaction: Transaction) => {
+    const amount = transaction.amount;
+    updateTransaction(transaction.id, {
+      status: 'confirmed',
+      lastConfirmedDate: new Date().toISOString(),
+      lastConfirmedAmount: amount,
+    });
+
+    // Update linked account
+    if (transaction.accountId && transaction.accountType) {
+      updateAccountValue(transaction, amount);
+    }
+  };
+
+  const handleAmend = (transaction: Transaction) => {
     setConfirmDialog(transaction);
     setConfirmedAmount(transaction.amount.toString());
+  };
+
+  const updateAccountValue = (transaction: Transaction, amount: number) => {
+    if (!transaction.accountId || !transaction.accountType) return;
+
+    if (transaction.accountType === 'asset') {
+      const asset = data.assets.find(a => a.id === transaction.accountId);
+      if (asset) {
+        const newValue = transaction.type === 'income' 
+          ? asset.value + amount 
+          : asset.value - amount;
+        updateAsset(asset.id, { value: newValue });
+      }
+    } else if (transaction.accountType === 'liability') {
+      const liability = data.liabilities.find(l => l.id === transaction.accountId);
+      if (liability) {
+        const newValue = transaction.type === 'expense'
+          ? liability.value + amount
+          : liability.value - amount;
+        updateLiability(liability.id, { value: newValue });
+      }
+    } else if (transaction.accountType === 'creditCard') {
+      const creditCard = data.creditCards.find(c => c.id === transaction.accountId);
+      if (creditCard) {
+        const newDebt = transaction.type === 'expense'
+          ? creditCard.outstandingDebt + amount
+          : creditCard.outstandingDebt - amount;
+        updateCreditCard(creditCard.id, { outstandingDebt: Math.max(0, newDebt) });
+      }
+    }
   };
 
   const submitConfirmation = () => {
@@ -57,25 +123,7 @@ export default function DueTransactions() {
     });
 
     // Update linked account
-    if (confirmDialog.accountId && confirmDialog.accountType) {
-      if (confirmDialog.accountType === 'asset') {
-        const asset = data.assets.find(a => a.id === confirmDialog.accountId);
-        if (asset) {
-          const newValue = confirmDialog.type === 'income' 
-            ? asset.value + amount 
-            : asset.value - amount;
-          updateAsset(asset.id, { value: newValue });
-        }
-      } else if (confirmDialog.accountType === 'liability') {
-        const liability = data.liabilities.find(l => l.id === confirmDialog.accountId);
-        if (liability) {
-          const newValue = confirmDialog.type === 'expense'
-            ? liability.value + amount
-            : liability.value - amount;
-          updateLiability(liability.id, { value: newValue });
-        }
-      }
-    }
+    updateAccountValue(confirmDialog, amount);
 
     setConfirmDialog(null);
     setConfirmedAmount('');
@@ -107,7 +155,7 @@ export default function DueTransactions() {
                         )}
                         <h3 className="font-semibold text-lg">{transaction.name}</h3>
                         <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                          Day {transaction.dayOfMonth}
+                          {getDaysUntilDue(transaction.dayOfMonth!)}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mb-1">{transaction.category}</p>
@@ -123,13 +171,25 @@ export default function DueTransactions() {
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">Estimated amount</p>
                     </div>
-                    <Button
-                      onClick={() => handleConfirm(transaction)}
-                      className="gap-2"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Confirm
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        onClick={() => handleQuickConfirm(transaction)}
+                        className="gap-2"
+                        size="sm"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Confirm
+                      </Button>
+                      <Button
+                        onClick={() => handleAmend(transaction)}
+                        variant="outline"
+                        className="gap-2"
+                        size="sm"
+                      >
+                        <Edit className="h-4 w-4" />
+                        Amend
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

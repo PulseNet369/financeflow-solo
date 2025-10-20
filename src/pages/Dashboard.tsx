@@ -122,7 +122,6 @@ export default function Dashboard() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, value, percent }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(0)}%)`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -132,6 +131,10 @@ export default function Dashboard() {
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                  <Legend 
+                    wrapperStyle={{ fontSize: '12px' }}
+                    formatter={(value, entry: any) => `${value}: ${formatCurrency(entry.payload.value)}`}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -153,7 +156,6 @@ export default function Dashboard() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -163,6 +165,10 @@ export default function Dashboard() {
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                  <Legend 
+                    wrapperStyle={{ fontSize: '12px' }}
+                    formatter={(value, entry: any) => `${value}: ${formatCurrency(entry.payload.value)}`}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (

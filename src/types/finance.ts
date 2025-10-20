@@ -60,7 +60,7 @@ export interface Transaction {
   category: string;
   recurring: boolean;
   accountId?: string; // Links to Asset or Liability
-  accountType?: 'asset' | 'liability';
+  accountType?: 'asset' | 'liability' | 'creditCard';
   dayOfMonth?: number; // Day of month when due (1-31)
   status: 'estimated' | 'confirmed';
   lastConfirmedDate?: string;

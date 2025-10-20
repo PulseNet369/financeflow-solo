@@ -93,6 +93,25 @@ export default function Assets() {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({ ...formData, category: value as AssetCategory })}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ASSET_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label htmlFor="name">Asset Name</Label>
                 <Input
                   id="name"
@@ -111,25 +130,6 @@ export default function Assets() {
                   onChange={(e) => setFormData({ ...formData, value: e.target.value })}
                   required
                 />
-              </div>
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value as AssetCategory })}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ASSET_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div>
                 <Label htmlFor="description">Description (Optional)</Label>
