@@ -20,20 +20,30 @@ export default function Transactions() {
     name: '',
     amount: '',
     type: 'income' as 'income' | 'expense',
-    category: '',
+    category: 'Income',
     recurring: false,
     accountId: '',
     accountType: '' as 'asset' | 'liability' | 'creditCard' | '',
-    dayOfMonth: '',
+    dayOfMonth: new Date().getDate().toString(),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Automatically set category based on account or use transaction type
+    let category = formData.type === 'income' ? 'Income' : 'Expense';
+    if (formData.accountId && formData.accountId !== 'none') {
+      const account = allAccounts.find(a => a.id === formData.accountId);
+      if (account) {
+        category = account.category;
+      }
+    }
+    
     const transactionData = {
       name: formData.name,
       amount: parseFloat(formData.amount),
       type: formData.type,
-      category: formData.category,
+      category: category,
       recurring: formData.recurring,
       status: 'estimated' as const,
       accountId: formData.accountId && formData.accountId !== 'none' ? formData.accountId : undefined,
@@ -55,11 +65,11 @@ export default function Transactions() {
       name: '', 
       amount: '', 
       type: 'income', 
-      category: '', 
+      category: 'Income', 
       recurring: false,
       accountId: 'none',
       accountType: '',
-      dayOfMonth: '',
+      dayOfMonth: new Date().getDate().toString(),
     });
     setEditingTransaction(null);
   };
@@ -155,16 +165,6 @@ export default function Transactions() {
                     <SelectItem value="expense">Expense</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="e.g., Salary, Rent, Groceries"
-                  required
-                />
               </div>
               <div>
                 <Label htmlFor="account">Link to Account (Optional)</Label>

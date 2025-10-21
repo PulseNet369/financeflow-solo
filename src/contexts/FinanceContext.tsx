@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { FinanceData, Asset, Liability, CreditCard, Transaction, Settings } from '@/types/finance';
+import { FinanceData, Asset, Liability, CreditCard, Transaction, Settings, NetWorthSnapshot } from '@/types/finance';
 import { toast } from '@/hooks/use-toast';
 
 interface FinanceContextType {
@@ -34,6 +34,7 @@ const defaultData: FinanceData = {
   creditCards: [],
   transactions: [],
   settings: defaultSettings,
+  netWorthHistory: [],
 };
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -41,11 +42,51 @@ const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [data, setData] = useState<FinanceData>(defaultData);
 
+  const createNetWorthSnapshot = (updatedData: FinanceData): NetWorthSnapshot => {
+    const totalAssets = updatedData.assets.reduce((sum, asset) => sum + asset.value, 0);
+    const totalLiabilities = updatedData.liabilities.reduce((sum, liability) => sum + liability.value, 0);
+    const totalCreditLimit = updatedData.creditCards.reduce((sum, card) => sum + card.creditLimit, 0);
+    const totalCreditDebt = updatedData.creditCards.reduce((sum, card) => sum + card.outstandingDebt, 0);
+    const availableCredit = totalCreditLimit - totalCreditDebt;
+    
+    const netWorth = updatedData.settings.includeCreditInNetWorth 
+      ? totalAssets + availableCredit - totalLiabilities - totalCreditDebt
+      : totalAssets - totalLiabilities - totalCreditDebt;
+
+    return {
+      date: new Date().toISOString(),
+      netWorth,
+      totalAssets,
+      totalLiabilities,
+      totalCreditDebt,
+      availableCredit,
+    };
+  };
+
+  const addNetWorthSnapshot = (updatedData: FinanceData) => {
+    const snapshot = createNetWorthSnapshot(updatedData);
+    const history = updatedData.netWorthHistory || [];
+    
+    // Only add if there's been a meaningful change or it's been more than an hour
+    const lastSnapshot = history[history.length - 1];
+    if (!lastSnapshot || 
+        Math.abs(lastSnapshot.netWorth - snapshot.netWorth) > 0.01 ||
+        new Date(snapshot.date).getTime() - new Date(lastSnapshot.date).getTime() > 3600000) {
+      return [...history, snapshot];
+    }
+    return history;
+  };
+
   useEffect(() => {
     const stored = localStorage.getItem('financeData');
     if (stored) {
       try {
-        setData(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        // Ensure backward compatibility - add netWorthHistory if it doesn't exist
+        if (!parsed.netWorthHistory) {
+          parsed.netWorthHistory = [];
+        }
+        setData(parsed);
       } catch (error) {
         console.error('Error loading data:', error);
       }
@@ -66,20 +107,32 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
-    setData(prev => ({ ...prev, assets: [...prev.assets, newAsset] }));
+    setData(prev => {
+      const updated = { ...prev, assets: [...prev.assets, newAsset] };
+      updated.netWorthHistory = addNetWorthSnapshot(updated);
+      return updated;
+    });
     toast({ title: 'Asset added', description: `${asset.name} has been added.` });
   };
 
   const updateAsset = (id: string, updates: Partial<Asset>) => {
-    setData(prev => ({
-      ...prev,
-      assets: prev.assets.map(a => a.id === id ? { ...a, ...updates } : a),
-    }));
+    setData(prev => {
+      const updated = {
+        ...prev,
+        assets: prev.assets.map(a => a.id === id ? { ...a, ...updates } : a),
+      };
+      updated.netWorthHistory = addNetWorthSnapshot(updated);
+      return updated;
+    });
     toast({ title: 'Asset updated' });
   };
 
   const deleteAsset = (id: string) => {
-    setData(prev => ({ ...prev, assets: prev.assets.filter(a => a.id !== id) }));
+    setData(prev => {
+      const updated = { ...prev, assets: prev.assets.filter(a => a.id !== id) };
+      updated.netWorthHistory = addNetWorthSnapshot(updated);
+      return updated;
+    });
     toast({ title: 'Asset deleted' });
   };
 
@@ -89,20 +142,32 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
-    setData(prev => ({ ...prev, liabilities: [...prev.liabilities, newLiability] }));
+    setData(prev => {
+      const updated = { ...prev, liabilities: [...prev.liabilities, newLiability] };
+      updated.netWorthHistory = addNetWorthSnapshot(updated);
+      return updated;
+    });
     toast({ title: 'Liability added', description: `${liability.name} has been added.` });
   };
 
   const updateLiability = (id: string, updates: Partial<Liability>) => {
-    setData(prev => ({
-      ...prev,
-      liabilities: prev.liabilities.map(l => l.id === id ? { ...l, ...updates } : l),
-    }));
+    setData(prev => {
+      const updated = {
+        ...prev,
+        liabilities: prev.liabilities.map(l => l.id === id ? { ...l, ...updates } : l),
+      };
+      updated.netWorthHistory = addNetWorthSnapshot(updated);
+      return updated;
+    });
     toast({ title: 'Liability updated' });
   };
 
   const deleteLiability = (id: string) => {
-    setData(prev => ({ ...prev, liabilities: prev.liabilities.filter(l => l.id !== id) }));
+    setData(prev => {
+      const updated = { ...prev, liabilities: prev.liabilities.filter(l => l.id !== id) };
+      updated.netWorthHistory = addNetWorthSnapshot(updated);
+      return updated;
+    });
     toast({ title: 'Liability deleted' });
   };
 
@@ -112,20 +177,32 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
-    setData(prev => ({ ...prev, creditCards: [...prev.creditCards, newCard] }));
+    setData(prev => {
+      const updated = { ...prev, creditCards: [...prev.creditCards, newCard] };
+      updated.netWorthHistory = addNetWorthSnapshot(updated);
+      return updated;
+    });
     toast({ title: 'Credit card added', description: `${card.name} has been added.` });
   };
 
   const updateCreditCard = (id: string, updates: Partial<CreditCard>) => {
-    setData(prev => ({
-      ...prev,
-      creditCards: prev.creditCards.map(c => c.id === id ? { ...c, ...updates } : c),
-    }));
+    setData(prev => {
+      const updated = {
+        ...prev,
+        creditCards: prev.creditCards.map(c => c.id === id ? { ...c, ...updates } : c),
+      };
+      updated.netWorthHistory = addNetWorthSnapshot(updated);
+      return updated;
+    });
     toast({ title: 'Credit card updated' });
   };
 
   const deleteCreditCard = (id: string) => {
-    setData(prev => ({ ...prev, creditCards: prev.creditCards.filter(c => c.id !== id) }));
+    setData(prev => {
+      const updated = { ...prev, creditCards: prev.creditCards.filter(c => c.id !== id) };
+      updated.netWorthHistory = addNetWorthSnapshot(updated);
+      return updated;
+    });
     toast({ title: 'Credit card deleted' });
   };
 
@@ -173,6 +250,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const importData = (dataStr: string) => {
     try {
       const imported = JSON.parse(dataStr);
+      // Ensure backward compatibility - add netWorthHistory if it doesn't exist
+      if (!imported.netWorthHistory) {
+        imported.netWorthHistory = [];
+      }
       setData(imported);
       toast({ title: 'Data imported', description: 'Your data has been restored.' });
     } catch (error) {

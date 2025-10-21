@@ -7,6 +7,7 @@ export const ASSET_CATEGORIES = [
   'Precious Metals',
   'Real Estate',
   'Vehicles',
+  'Pension',
   'Other Investments',
 ] as const;
 
@@ -68,6 +69,15 @@ export interface Transaction {
   createdAt: string;
 }
 
+export interface NetWorthSnapshot {
+  date: string;
+  netWorth: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  totalCreditDebt: number;
+  availableCredit: number;
+}
+
 export interface Settings {
   currency: string;
   theme: 'light' | 'dark';
@@ -80,4 +90,5 @@ export interface FinanceData {
   creditCards: CreditCard[];
   transactions: Transaction[];
   settings: Settings;
+  netWorthHistory: NetWorthSnapshot[];
 }

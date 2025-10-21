@@ -1,5 +1,6 @@
 import { useFinance } from '@/contexts/FinanceContext';
 import { StatCard } from '@/components/StatCard';
+import { NetWorthChart } from '@/components/NetWorthChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet, TrendingUp, TrendingDown, CreditCard } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
@@ -155,6 +156,8 @@ export default function Dashboard() {
         </Card>
       )}
 
+      <NetWorthChart history={data.netWorthHistory} formatCurrency={formatCurrency} />
+
       <div className="grid gap-3 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-3">
@@ -169,6 +172,7 @@ export default function Dashboard() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
+                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -203,6 +207,7 @@ export default function Dashboard() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
+                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
