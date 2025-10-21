@@ -15,9 +15,11 @@ export default function Dashboard() {
   const totalCreditDebt = data.creditCards.reduce((sum, card) => sum + card.outstandingDebt, 0);
   const availableCredit = totalCreditLimit - totalCreditDebt;
   
+  // Credit card debt always reduces net worth
+  // Available credit only adds if setting is enabled
   const netWorth = data.settings.includeCreditInNetWorth 
-    ? totalAssets - totalLiabilities + availableCredit
-    : totalAssets - totalLiabilities;
+    ? totalAssets + availableCredit - totalLiabilities - totalCreditDebt
+    : totalAssets - totalLiabilities - totalCreditDebt;
 
   const monthlyIncome = data.transactions
     .filter(t => t.type === 'income' && t.recurring)
@@ -44,14 +46,59 @@ export default function Dashboard() {
 
   const assetsPieData = Object.entries(assetsByCategory).map(([name, value]) => ({ name, value }));
 
-  // Net worth breakdown
-  const netWorthBreakdown = [
-    { name: 'Assets', value: totalAssets, color: 'hsl(var(--success))' },
-    { name: 'Liabilities', value: totalLiabilities, color: 'hsl(var(--destructive))' },
-  ];
+  // Net worth breakdown by category
+  const netWorthDetailedBreakdown: { name: string; value: number; color: string }[] = [];
 
+  // Add assets by category
+  const assetsByCategoryForPie = data.assets.reduce((acc, asset) => {
+    acc[asset.category] = (acc[asset.category] || 0) + asset.value;
+    return acc;
+  }, {} as Record<string, number>);
+
+  Object.entries(assetsByCategoryForPie).forEach(([category, value], index) => {
+    if (value > 0) {
+      netWorthDetailedBreakdown.push({
+        name: category,
+        value,
+        color: COLORS[index % COLORS.length],
+      });
+    }
+  });
+
+  // Add liabilities by category (as negative for display purposes)
+  const liabilitiesByCategoryForPie = data.liabilities.reduce((acc, liability) => {
+    acc[liability.category] = (acc[liability.category] || 0) + liability.value;
+    return acc;
+  }, {} as Record<string, number>);
+
+  let liabilityColorIndex = Object.keys(assetsByCategoryForPie).length;
+  Object.entries(liabilitiesByCategoryForPie).forEach(([category, value]) => {
+    if (value > 0) {
+      netWorthDetailedBreakdown.push({
+        name: `${category} (Debt)`,
+        value,
+        color: COLORS[liabilityColorIndex % COLORS.length],
+      });
+      liabilityColorIndex++;
+    }
+  });
+
+  // Add credit card debt (always shown)
+  if (totalCreditDebt > 0) {
+    netWorthDetailedBreakdown.push({
+      name: 'Credit Card Debt',
+      value: totalCreditDebt,
+      color: 'hsl(var(--destructive))',
+    });
+  }
+
+  // Add available credit (only if setting is enabled)
   if (data.settings.includeCreditInNetWorth && availableCredit > 0) {
-    netWorthBreakdown.push({ name: 'Available Credit', value: availableCredit, color: 'hsl(var(--primary))' });
+    netWorthDetailedBreakdown.push({
+      name: 'Available Credit',
+      value: availableCredit,
+      color: 'hsl(var(--primary))',
+    });
   }
 
   const today = new Date();
@@ -111,14 +158,14 @@ export default function Dashboard() {
       <div className="grid gap-3 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Net Worth Composition</CardTitle>
+            <CardTitle className="text-base">Net Worth by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            {netWorthBreakdown.length > 0 ? (
+            {netWorthDetailedBreakdown.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
-                    data={netWorthBreakdown}
+                    data={netWorthDetailedBreakdown}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -126,14 +173,14 @@ export default function Dashboard() {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {netWorthBreakdown.map((entry, index) => (
+                    {netWorthDetailedBreakdown.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => formatCurrency(value as number)} />
                   <Legend 
-                    wrapperStyle={{ fontSize: '12px' }}
-                    formatter={(value, entry: any) => `${value}: ${formatCurrency(entry.payload.value)}`}
+                    wrapperStyle={{ fontSize: '11px', maxHeight: '100px', overflowY: 'auto' }}
+                    formatter={(value) => value.length > 15 ? value.substring(0, 15) + '...' : value}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -166,8 +213,8 @@ export default function Dashboard() {
                   </Pie>
                   <Tooltip formatter={(value) => formatCurrency(value as number)} />
                   <Legend 
-                    wrapperStyle={{ fontSize: '12px' }}
-                    formatter={(value, entry: any) => `${value}: ${formatCurrency(entry.payload.value)}`}
+                    wrapperStyle={{ fontSize: '11px', maxHeight: '100px', overflowY: 'auto' }}
+                    formatter={(value) => value.length > 15 ? value.substring(0, 15) + '...' : value}
                   />
                 </PieChart>
               </ResponsiveContainer>
