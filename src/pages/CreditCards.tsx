@@ -19,33 +19,31 @@ export default function CreditCards() {
     outstandingDebt: '',
     apr: '',
     paymentDay: '',
+    createdAt: new Date().toISOString().split('T')[0],
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const cardData = {
+      name: formData.name,
+      creditLimit: parseFloat(formData.creditLimit),
+      outstandingDebt: parseFloat(formData.outstandingDebt),
+      apr: parseFloat(formData.apr),
+      paymentDay: parseInt(formData.paymentDay),
+      ...(formData.createdAt && { createdAt: new Date(formData.createdAt).toISOString() }),
+    };
+    
     if (editingCard) {
-      updateCreditCard(editingCard.id, {
-        name: formData.name,
-        creditLimit: parseFloat(formData.creditLimit),
-        outstandingDebt: parseFloat(formData.outstandingDebt),
-        apr: parseFloat(formData.apr),
-        paymentDay: parseInt(formData.paymentDay),
-      });
+      updateCreditCard(editingCard.id, cardData);
     } else {
-      addCreditCard({
-        name: formData.name,
-        creditLimit: parseFloat(formData.creditLimit),
-        outstandingDebt: parseFloat(formData.outstandingDebt),
-        apr: parseFloat(formData.apr),
-        paymentDay: parseInt(formData.paymentDay),
-      });
+      addCreditCard(cardData);
     }
     setIsOpen(false);
     resetForm();
   };
 
   const resetForm = () => {
-    setFormData({ name: '', creditLimit: '', outstandingDebt: '', apr: '', paymentDay: '' });
+    setFormData({ name: '', creditLimit: '', outstandingDebt: '', apr: '', paymentDay: '', createdAt: new Date().toISOString().split('T')[0] });
     setEditingCard(null);
   };
 
@@ -57,6 +55,7 @@ export default function CreditCards() {
       outstandingDebt: card.outstandingDebt.toString(),
       apr: card.apr.toString(),
       paymentDay: card.paymentDay.toString(),
+      createdAt: card.createdAt.split('T')[0],
     });
     setIsOpen(true);
   };
@@ -144,6 +143,16 @@ export default function CreditCards() {
                   max="31"
                   value={formData.paymentDay}
                   onChange={(e) => setFormData({ ...formData, paymentDay: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="createdAt">Date Added</Label>
+                <Input
+                  id="createdAt"
+                  type="date"
+                  value={formData.createdAt}
+                  onChange={(e) => setFormData({ ...formData, createdAt: e.target.value })}
                   required
                 />
               </div>

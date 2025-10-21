@@ -5,7 +5,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet, TrendingUp, TrendingDown, CreditCard } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
-const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+// Define distinct colors for light and dark themes
+const ASSET_COLORS = [
+  'hsl(142, 70%, 45%)', // green
+  'hsl(200, 70%, 50%)', // blue
+  'hsl(280, 70%, 60%)', // purple
+  'hsl(45, 90%, 55%)',  // yellow/gold
+  'hsl(160, 60%, 45%)', // teal
+  'hsl(30, 80%, 55%)',  // orange
+  'hsl(320, 65%, 55%)', // pink
+  'hsl(190, 70%, 45%)', // cyan
+];
+
+const LIABILITY_COLORS = [
+  'hsl(0, 70%, 50%)',   // red
+  'hsl(15, 75%, 50%)',  // orange-red
+  'hsl(340, 70%, 55%)', // magenta
+  'hsl(25, 80%, 50%)',  // burnt orange
+  'hsl(350, 65%, 50%)', // rose
+];
 
 export default function Dashboard() {
   const { data } = useFinance();
@@ -61,7 +79,7 @@ export default function Dashboard() {
       netWorthDetailedBreakdown.push({
         name: category,
         value,
-        color: COLORS[index % COLORS.length],
+        color: ASSET_COLORS[index % ASSET_COLORS.length],
       });
     }
   });
@@ -72,15 +90,13 @@ export default function Dashboard() {
     return acc;
   }, {} as Record<string, number>);
 
-  let liabilityColorIndex = Object.keys(assetsByCategoryForPie).length;
-  Object.entries(liabilitiesByCategoryForPie).forEach(([category, value]) => {
+  Object.entries(liabilitiesByCategoryForPie).forEach(([category, value], index) => {
     if (value > 0) {
       netWorthDetailedBreakdown.push({
         name: `${category} (Debt)`,
         value,
-        color: COLORS[liabilityColorIndex % COLORS.length],
+        color: LIABILITY_COLORS[index % LIABILITY_COLORS.length],
       });
-      liabilityColorIndex++;
     }
   });
 
@@ -156,7 +172,7 @@ export default function Dashboard() {
         </Card>
       )}
 
-      <NetWorthChart history={data.netWorthHistory} formatCurrency={formatCurrency} />
+      <NetWorthChart history={data.netWorthHistory} formatCurrency={formatCurrency} settings={data.settings} />
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Card>
@@ -213,7 +229,7 @@ export default function Dashboard() {
                     dataKey="value"
                   >
                     {assetsPieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={ASSET_COLORS[index % ASSET_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => formatCurrency(value as number)} />

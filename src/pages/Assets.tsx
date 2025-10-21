@@ -18,38 +18,38 @@ export default function Assets() {
     value: string;
     category: AssetCategory | '';
     description: string;
+    createdAt: string;
   }>({
     name: '',
     value: '',
     category: '',
     description: '',
+    createdAt: new Date().toISOString().split('T')[0],
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.category) return;
     
+    const assetData = {
+      name: formData.name,
+      value: parseFloat(formData.value),
+      category: formData.category,
+      description: formData.description,
+      ...(formData.createdAt && { createdAt: new Date(formData.createdAt).toISOString() }),
+    };
+
     if (editingAsset) {
-      updateAsset(editingAsset.id, {
-        name: formData.name,
-        value: parseFloat(formData.value),
-        category: formData.category,
-        description: formData.description,
-      });
+      updateAsset(editingAsset.id, assetData);
     } else {
-      addAsset({
-        name: formData.name,
-        value: parseFloat(formData.value),
-        category: formData.category,
-        description: formData.description,
-      });
+      addAsset(assetData);
     }
     setIsOpen(false);
     resetForm();
   };
 
   const resetForm = () => {
-    setFormData({ name: '', value: '', category: '', description: '' });
+    setFormData({ name: '', value: '', category: '', description: '', createdAt: new Date().toISOString().split('T')[0] });
     setEditingAsset(null);
   };
 
@@ -60,6 +60,7 @@ export default function Assets() {
       value: asset.value.toString(),
       category: asset.category,
       description: asset.description || '',
+      createdAt: asset.createdAt.split('T')[0],
     });
     setIsOpen(true);
   };
@@ -137,6 +138,16 @@ export default function Assets() {
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="createdAt">Date Added</Label>
+                <Input
+                  id="createdAt"
+                  type="date"
+                  value={formData.createdAt}
+                  onChange={(e) => setFormData({ ...formData, createdAt: e.target.value })}
+                  required
                 />
               </div>
               <Button type="submit" className="w-full">

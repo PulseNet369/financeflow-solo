@@ -24,6 +24,13 @@ export const LIABILITY_CATEGORIES = [
 export type AssetCategory = typeof ASSET_CATEGORIES[number];
 export type LiabilityCategory = typeof LIABILITY_CATEGORIES[number];
 
+export interface HistoryEntry {
+  date: string;
+  field: string;
+  oldValue: number;
+  newValue: number;
+}
+
 export interface Asset {
   id: string;
   name: string;
@@ -31,6 +38,7 @@ export interface Asset {
   category: AssetCategory;
   description?: string;
   createdAt: string;
+  history?: HistoryEntry[];
 }
 
 export interface Liability {
@@ -41,6 +49,7 @@ export interface Liability {
   interestRate?: number;
   description?: string;
   createdAt: string;
+  history?: HistoryEntry[];
 }
 
 export interface CreditCard {
@@ -51,6 +60,7 @@ export interface CreditCard {
   apr: number;
   paymentDay: number;
   createdAt: string;
+  history?: HistoryEntry[];
 }
 
 export interface Transaction {
@@ -60,9 +70,10 @@ export interface Transaction {
   type: 'income' | 'expense';
   category: string;
   recurring: boolean;
+  frequency?: 'daily' | 'weekly' | 'monthly'; // Only for recurring transactions
   accountId?: string; // Links to Asset or Liability
   accountType?: 'asset' | 'liability' | 'creditCard';
-  dayOfMonth?: number; // Day of month when due (1-31)
+  dayOfMonth?: number; // Day of month when due (1-31) - or day of week for weekly
   status: 'estimated' | 'confirmed';
   lastConfirmedDate?: string;
   lastConfirmedAmount?: number;

@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { NetWorthSnapshot } from '@/types/finance';
+import { NetWorthSnapshot, Settings } from '@/types/finance';
 
 interface NetWorthChartProps {
   history: NetWorthSnapshot[];
   formatCurrency: (value: number) => string;
+  settings: Settings;
 }
 
-export const NetWorthChart = ({ history, formatCurrency }: NetWorthChartProps) => {
+export const NetWorthChart = ({ history, formatCurrency, settings }: NetWorthChartProps) => {
   const [timeframe, setTimeframe] = useState<'1D' | '1M' | '1Y'>('1M');
 
   const filterDataByTimeframe = (data: NetWorthSnapshot[]) => {
@@ -32,14 +33,22 @@ export const NetWorthChart = ({ history, formatCurrency }: NetWorthChartProps) =
     
     return data
       .filter(snapshot => new Date(snapshot.date) >= cutoffDate)
-      .map(snapshot => ({
-        ...snapshot,
-        dateFormatted: new Date(snapshot.date).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          ...(timeframe === '1Y' ? { year: '2-digit' } : {}),
-        }),
-      }));
+      .map(snapshot => {
+        // Recalculate net worth based on current settings
+        const netWorth = settings.includeCreditInNetWorth
+          ? snapshot.totalAssets + snapshot.availableCredit - snapshot.totalLiabilities - snapshot.totalCreditDebt
+          : snapshot.totalAssets - snapshot.totalLiabilities - snapshot.totalCreditDebt;
+        
+        return {
+          ...snapshot,
+          netWorth,
+          dateFormatted: new Date(snapshot.date).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            ...(timeframe === '1Y' ? { year: '2-digit' } : {}),
+          }),
+        };
+      });
   };
 
   const filteredData = filterDataByTimeframe(history);

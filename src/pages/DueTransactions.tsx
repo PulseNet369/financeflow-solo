@@ -5,13 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, Clock, TrendingUp, TrendingDown, Edit } from 'lucide-react';
-import { Transaction } from '@/types/finance';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
+import { CheckCircle2, Clock, TrendingUp, TrendingDown, Edit, X } from 'lucide-react';
+import { Transaction, ASSET_CATEGORIES, LIABILITY_CATEGORIES } from '@/types/finance';
 
 export default function DueTransactions() {
-  const { data, updateTransaction, updateAsset, updateLiability, updateCreditCard } = useFinance();
+  const { data, updateTransaction, updateAsset, updateLiability, updateCreditCard, deleteTransaction } = useFinance();
   const [confirmDialog, setConfirmDialog] = useState<Transaction | null>(null);
   const [confirmedAmount, setConfirmedAmount] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [selectedAccountType, setSelectedAccountType] = useState<'asset' | 'liability' | 'creditCard' | ''>('');
 
   const today = new Date();
   const currentDay = today.getDate();
@@ -80,7 +83,19 @@ export default function DueTransactions() {
   const handleAmend = (transaction: Transaction) => {
     setConfirmDialog(transaction);
     setConfirmedAmount(transaction.amount.toString());
+    setSelectedAccountId(transaction.accountId || 'none');
+    setSelectedAccountType(transaction.accountType || '');
   };
+
+  const handleCancel = (transaction: Transaction) => {
+    deleteTransaction(transaction.id);
+  };
+
+  const allAccounts = [
+    ...data.assets.map(a => ({ id: a.id, name: a.name, type: 'asset' as const, category: a.category })),
+    ...data.liabilities.map(l => ({ id: l.id, name: l.name, type: 'liability' as const, category: l.category })),
+    ...data.creditCards.map(c => ({ id: c.id, name: c.name, type: 'creditCard' as const, category: 'Credit Card' })),
+  ];
 
   const updateAccountValue = (transaction: Transaction, amount: number) => {
     if (!transaction.accountId || !transaction.accountType) return;
@@ -116,17 +131,26 @@ export default function DueTransactions() {
     if (!confirmDialog) return;
 
     const amount = parseFloat(confirmedAmount);
+    const accountId = selectedAccountId && selectedAccountId !== 'none' ? selectedAccountId : undefined;
+    
     updateTransaction(confirmDialog.id, {
       status: 'confirmed',
       lastConfirmedDate: new Date().toISOString(),
       lastConfirmedAmount: amount,
+      accountId,
+      accountType: selectedAccountType || undefined,
     });
 
     // Update linked account
-    updateAccountValue(confirmDialog, amount);
+    if (accountId) {
+      const updatedTransaction = { ...confirmDialog, accountId, accountType: selectedAccountType };
+      updateAccountValue(updatedTransaction, amount);
+    }
 
     setConfirmDialog(null);
     setConfirmedAmount('');
+    setSelectedAccountId('');
+    setSelectedAccountType('');
   };
 
   return (
@@ -189,6 +213,15 @@ export default function DueTransactions() {
                         <Edit className="h-4 w-4" />
                         Amend
                       </Button>
+                      <Button
+                        onClick={() => handleCancel(transaction)}
+                        variant="destructive"
+                        className="gap-2"
+                        size="sm"
+                      >
+                        <X className="h-4 w-4" />
+                        Cancel
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -237,12 +270,62 @@ export default function DueTransactions() {
                   required
                 />
               </div>
-              {confirmDialog.accountId && (
+              <div>
+                <Label htmlFor="account">Account</Label>
+                <Select 
+                  value={selectedAccountId} 
+                  onValueChange={(value) => {
+                    const account = allAccounts.find(a => a.id === value);
+                    setSelectedAccountId(value);
+                    setSelectedAccountType(account?.type || '');
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="none">No account</SelectItem>
+                    {ASSET_CATEGORIES.map((category) => {
+                      const categoryAccounts = allAccounts.filter(a => a.type === 'asset' && a.category === category);
+                      if (categoryAccounts.length === 0) return null;
+                      return (
+                        <SelectGroup key={category}>
+                          <SelectLabel>{category}</SelectLabel>
+                          {categoryAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      );
+                    })}
+                    {LIABILITY_CATEGORIES.map((category) => {
+                      const categoryAccounts = allAccounts.filter(a => a.type === 'liability' && a.category === category);
+                      if (categoryAccounts.length === 0) return null;
+                      return (
+                        <SelectGroup key={category}>
+                          <SelectLabel>{category}</SelectLabel>
+                          {categoryAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      );
+                    })}
+                    {data.creditCards.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Credit Cards</SelectLabel>
+                        {data.creditCards.map((card) => (
+                          <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedAccountId && selectedAccountId !== 'none' && (
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-sm font-medium mb-1">Account Update</p>
                   <p className="text-xs text-muted-foreground">
-                    {getAccountName(confirmDialog.accountId)} will be {
-                      confirmDialog.type === 'income' ? 'increased' : 'decreased'
+                    {allAccounts.find(a => a.id === selectedAccountId)?.name} will be {
+                      confirmDialog?.type === 'income' ? 'increased' : 'decreased'
                     } by the confirmed amount.
                   </p>
                 </div>

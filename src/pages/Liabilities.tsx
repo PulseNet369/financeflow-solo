@@ -19,41 +19,40 @@ export default function Liabilities() {
     category: LiabilityCategory | '';
     interestRate: string;
     description: string;
+    createdAt: string;
   }>({
     name: '',
     value: '',
     category: '',
     interestRate: '',
     description: '',
+    createdAt: new Date().toISOString().split('T')[0],
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.category) return;
     
+    const liabilityData = {
+      name: formData.name,
+      value: parseFloat(formData.value),
+      category: formData.category,
+      interestRate: formData.interestRate ? parseFloat(formData.interestRate) : undefined,
+      description: formData.description,
+      ...(formData.createdAt && { createdAt: new Date(formData.createdAt).toISOString() }),
+    };
+
     if (editingLiability) {
-      updateLiability(editingLiability.id, {
-        name: formData.name,
-        value: parseFloat(formData.value),
-        category: formData.category,
-        interestRate: formData.interestRate ? parseFloat(formData.interestRate) : undefined,
-        description: formData.description,
-      });
+      updateLiability(editingLiability.id, liabilityData);
     } else {
-      addLiability({
-        name: formData.name,
-        value: parseFloat(formData.value),
-        category: formData.category,
-        interestRate: formData.interestRate ? parseFloat(formData.interestRate) : undefined,
-        description: formData.description,
-      });
+      addLiability(liabilityData);
     }
     setIsOpen(false);
     resetForm();
   };
 
   const resetForm = () => {
-    setFormData({ name: '', value: '', category: '', interestRate: '', description: '' });
+    setFormData({ name: '', value: '', category: '', interestRate: '', description: '', createdAt: new Date().toISOString().split('T')[0] });
     setEditingLiability(null);
   };
 
@@ -65,6 +64,7 @@ export default function Liabilities() {
       category: liability.category,
       interestRate: liability.interestRate?.toString() || '',
       description: liability.description || '',
+      createdAt: liability.createdAt.split('T')[0],
     });
     setIsOpen(true);
   };
@@ -152,6 +152,16 @@ export default function Liabilities() {
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="createdAt">Date Added</Label>
+                <Input
+                  id="createdAt"
+                  type="date"
+                  value={formData.createdAt}
+                  onChange={(e) => setFormData({ ...formData, createdAt: e.target.value })}
+                  required
                 />
               </div>
               <Button type="submit" className="w-full">

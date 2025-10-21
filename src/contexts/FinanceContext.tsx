@@ -117,9 +117,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateAsset = (id: string, updates: Partial<Asset>) => {
     setData(prev => {
+      const asset = prev.assets.find(a => a.id === id);
+      if (!asset) return prev;
+      
+      const history = asset.history || [];
+      // Track value changes
+      if (updates.value !== undefined && updates.value !== asset.value) {
+        history.push({
+          date: new Date().toISOString(),
+          field: 'value',
+          oldValue: asset.value,
+          newValue: updates.value,
+        });
+      }
+      
       const updated = {
         ...prev,
-        assets: prev.assets.map(a => a.id === id ? { ...a, ...updates } : a),
+        assets: prev.assets.map(a => a.id === id ? { ...a, ...updates, history } : a),
       };
       updated.netWorthHistory = addNetWorthSnapshot(updated);
       return updated;
@@ -152,9 +166,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateLiability = (id: string, updates: Partial<Liability>) => {
     setData(prev => {
+      const liability = prev.liabilities.find(l => l.id === id);
+      if (!liability) return prev;
+      
+      const history = liability.history || [];
+      // Track value changes
+      if (updates.value !== undefined && updates.value !== liability.value) {
+        history.push({
+          date: new Date().toISOString(),
+          field: 'value',
+          oldValue: liability.value,
+          newValue: updates.value,
+        });
+      }
+      
       const updated = {
         ...prev,
-        liabilities: prev.liabilities.map(l => l.id === id ? { ...l, ...updates } : l),
+        liabilities: prev.liabilities.map(l => l.id === id ? { ...l, ...updates, history } : l),
       };
       updated.netWorthHistory = addNetWorthSnapshot(updated);
       return updated;
@@ -187,9 +215,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateCreditCard = (id: string, updates: Partial<CreditCard>) => {
     setData(prev => {
+      const card = prev.creditCards.find(c => c.id === id);
+      if (!card) return prev;
+      
+      const history = card.history || [];
+      // Track debt changes
+      if (updates.outstandingDebt !== undefined && updates.outstandingDebt !== card.outstandingDebt) {
+        history.push({
+          date: new Date().toISOString(),
+          field: 'outstandingDebt',
+          oldValue: card.outstandingDebt,
+          newValue: updates.outstandingDebt,
+        });
+      }
+      
       const updated = {
         ...prev,
-        creditCards: prev.creditCards.map(c => c.id === id ? { ...c, ...updates } : c),
+        creditCards: prev.creditCards.map(c => c.id === id ? { ...c, ...updates, history } : c),
       };
       updated.netWorthHistory = addNetWorthSnapshot(updated);
       return updated;

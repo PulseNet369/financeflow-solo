@@ -22,6 +22,7 @@ export default function Transactions() {
     type: 'income' as 'income' | 'expense',
     category: 'Income',
     recurring: false,
+    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly',
     accountId: '',
     accountType: '' as 'asset' | 'liability' | 'creditCard' | '',
     dayOfMonth: new Date().getDate().toString(),
@@ -45,6 +46,7 @@ export default function Transactions() {
       type: formData.type,
       category: category,
       recurring: formData.recurring,
+      frequency: formData.recurring ? formData.frequency : undefined,
       status: 'estimated' as const,
       accountId: formData.accountId && formData.accountId !== 'none' ? formData.accountId : undefined,
       accountType: formData.accountType || undefined,
@@ -67,6 +69,7 @@ export default function Transactions() {
       type: 'income', 
       category: 'Income', 
       recurring: false,
+      frequency: 'monthly',
       accountId: 'none',
       accountType: '',
       dayOfMonth: new Date().getDate().toString(),
@@ -82,6 +85,7 @@ export default function Transactions() {
       type: transaction.type,
       category: transaction.category,
       recurring: transaction.recurring,
+      frequency: transaction.frequency || 'monthly',
       accountId: transaction.accountId || 'none',
       accountType: transaction.accountType || '',
       dayOfMonth: transaction.dayOfMonth?.toString() || '',
@@ -233,7 +237,7 @@ export default function Transactions() {
                 </Select>
               </div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="recurring">Recurring (Monthly)</Label>
+                <Label htmlFor="recurring">Recurring</Label>
                 <Switch
                   id="recurring"
                   checked={formData.recurring}
@@ -241,18 +245,44 @@ export default function Transactions() {
                 />
               </div>
               {formData.recurring && (
-                <div>
-                  <Label htmlFor="dayOfMonth">Day of Month (1-31)</Label>
-                  <Input
-                    id="dayOfMonth"
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={formData.dayOfMonth}
-                    onChange={(e) => setFormData({ ...formData, dayOfMonth: e.target.value })}
-                    placeholder="e.g., 1 for first of month"
-                  />
-                </div>
+                <>
+                  <div>
+                    <Label htmlFor="frequency">Frequency</Label>
+                    <Select 
+                      value={formData.frequency} 
+                      onValueChange={(value: 'daily' | 'weekly' | 'monthly') => 
+                        setFormData({ ...formData, frequency: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="dayOfMonth">
+                      {formData.frequency === 'monthly' ? 'Day of Month (1-31)' : 
+                       formData.frequency === 'weekly' ? 'Day of Week (1=Mon, 7=Sun)' : 
+                       'Start Date'}
+                    </Label>
+                    <Input
+                      id="dayOfMonth"
+                      type="number"
+                      min="1"
+                      max={formData.frequency === 'monthly' ? '31' : formData.frequency === 'weekly' ? '7' : '31'}
+                      value={formData.dayOfMonth}
+                      onChange={(e) => setFormData({ ...formData, dayOfMonth: e.target.value })}
+                      placeholder={formData.frequency === 'monthly' ? 'e.g., 1 for first of month' : 
+                                  formData.frequency === 'weekly' ? 'e.g., 1 for Monday' : 
+                                  'Day of month'}
+                    />
+                  </div>
+                </>
               )}
               <Button type="submit" className="w-full">
                 {editingTransaction ? 'Update' : 'Add'} Transaction
@@ -313,7 +343,9 @@ export default function Transactions() {
                         <h3 className="font-semibold text-sm">{transaction.name}</h3>
                         {transaction.recurring && (
                           <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                            Day {transaction.dayOfMonth}
+                            {transaction.frequency === 'daily' ? 'Daily' :
+                             transaction.frequency === 'weekly' ? `Weekly (${transaction.dayOfMonth})` :
+                             `Day ${transaction.dayOfMonth}`}
                           </span>
                         )}
                         <span className={`text-xs px-2 py-0.5 rounded ${
@@ -366,7 +398,9 @@ export default function Transactions() {
                         <h3 className="font-semibold text-sm">{transaction.name}</h3>
                         {transaction.recurring && (
                           <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                            Day {transaction.dayOfMonth}
+                            {transaction.frequency === 'daily' ? 'Daily' :
+                             transaction.frequency === 'weekly' ? `Weekly (${transaction.dayOfMonth})` :
+                             `Day ${transaction.dayOfMonth}`}
                           </span>
                         )}
                         <span className={`text-xs px-2 py-0.5 rounded ${
