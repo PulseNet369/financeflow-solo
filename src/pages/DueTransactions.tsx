@@ -142,8 +142,12 @@ export default function DueTransactions() {
     });
 
     // Update linked account
-    if (accountId) {
-      const updatedTransaction = { ...confirmDialog, accountId, accountType: selectedAccountType };
+    if (accountId && selectedAccountType) {
+      const updatedTransaction = { 
+        ...confirmDialog, 
+        accountId, 
+        accountType: selectedAccountType as 'asset' | 'liability' | 'creditCard'
+      };
       updateAccountValue(updatedTransaction, amount);
     }
 
