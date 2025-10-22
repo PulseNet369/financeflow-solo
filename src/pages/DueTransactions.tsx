@@ -24,20 +24,39 @@ export default function DueTransactions() {
   const dueTransactions = data.transactions.filter(t => {
     if (!t.recurring || !t.dayOfMonth) return false;
     
-    const lastConfirmed = t.lastConfirmedDate ? new Date(t.lastConfirmedDate) : null;
+    const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
     
     // Check if already confirmed this month
+    const lastConfirmed = t.lastConfirmedDate ? new Date(t.lastConfirmedDate) : null;
     if (lastConfirmed && 
         lastConfirmed.getMonth() === currentMonth && 
         lastConfirmed.getFullYear() === currentYear) {
       return false;
     }
     
-    // Calculate days until due
-    const dueDate = new Date(currentYear, currentMonth, t.dayOfMonth);
-    const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    // Check if skipped this month
+    if (t.skippedMonths?.includes(currentMonthKey)) {
+      return false;
+    }
     
-    // Only show if within 7 days before or on/after the due date
+    // Calculate the next due date
+    let nextDueDate = new Date(currentYear, currentMonth, t.dayOfMonth);
+    
+    // If the due date has passed this month and transaction was created after that date,
+    // or if transaction was created today after the due day, move to next month
+    const createdDate = new Date(t.createdAt);
+    if (nextDueDate < today) {
+      // If transaction was created this month after its due day, skip to next month
+      if (createdDate.getMonth() === currentMonth && 
+          createdDate.getFullYear() === currentYear && 
+          createdDate.getDate() > t.dayOfMonth) {
+        nextDueDate = new Date(currentYear, currentMonth + 1, t.dayOfMonth);
+      }
+    }
+    
+    const daysUntilDue = Math.ceil((nextDueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Show if within 7 days before or overdue up to 30 days
     return daysUntilDue <= 7 && daysUntilDue >= -30;
   });
 
@@ -56,9 +75,22 @@ export default function DueTransactions() {
     return asset?.name || liability?.name || creditCard?.name || null;
   };
 
-  const getDaysUntilDue = (dayOfMonth: number) => {
-    const dueDate = new Date(currentYear, currentMonth, dayOfMonth);
-    const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const getDaysUntilDue = (transaction: Transaction) => {
+    const dayOfMonth = transaction.dayOfMonth!;
+    let nextDueDate = new Date(currentYear, currentMonth, dayOfMonth);
+    
+    // If the due date has passed this month and transaction was created after that date,
+    // move to next month
+    const createdDate = new Date(transaction.createdAt);
+    if (nextDueDate < today) {
+      if (createdDate.getMonth() === currentMonth && 
+          createdDate.getFullYear() === currentYear && 
+          createdDate.getDate() > dayOfMonth) {
+        nextDueDate = new Date(currentYear, currentMonth + 1, dayOfMonth);
+      }
+    }
+    
+    const daysUntilDue = Math.ceil((nextDueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
     if (daysUntilDue < 0) return 'Overdue';
     if (daysUntilDue === 0) return 'Due today';
@@ -88,7 +120,13 @@ export default function DueTransactions() {
   };
 
   const handleCancel = (transaction: Transaction) => {
-    deleteTransaction(transaction.id);
+    // For recurring transactions, just skip this month instead of deleting
+    const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+    const skippedMonths = transaction.skippedMonths || [];
+    
+    updateTransaction(transaction.id, {
+      skippedMonths: [...skippedMonths, currentMonthKey],
+    });
   };
 
   const allAccounts = [
@@ -183,7 +221,7 @@ export default function DueTransactions() {
                         )}
                         <h3 className="font-semibold text-lg">{transaction.name}</h3>
                         <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                          {getDaysUntilDue(transaction.dayOfMonth!)}
+                          {getDaysUntilDue(transaction)}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mb-1">{transaction.category}</p>

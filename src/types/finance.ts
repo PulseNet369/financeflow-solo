@@ -77,6 +77,7 @@ export interface Transaction {
   status: 'estimated' | 'confirmed';
   lastConfirmedDate?: string;
   lastConfirmedAmount?: number;
+  skippedMonths?: string[]; // Array of YYYY-MM strings for months that were skipped/cancelled
   createdAt: string;
 }
 
